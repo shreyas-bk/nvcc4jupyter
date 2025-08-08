@@ -4,6 +4,7 @@ Parsers for the CUDA magic commands.
 
 import argparse
 from enum import Enum
+import subprocess
 from typing import Callable, Optional, Type, TypeVar
 
 
@@ -19,6 +20,25 @@ _default_profiler_args: str = ""
 _default_compiler_args: str = ""
 
 T = TypeVar("T")
+
+result = subprocess.run(['nvidia-smi', '-q'], capture_output=True, text=True, check=True)
+output = result.stdout
+for line in output.splitlines():
+    if "Product Architecture" in line:
+        # Extract the architecture which is after the colon and any leading/trailing whitespace
+        architecture_line = line.split(':')
+        if len(architecture_line) > 1:
+            architecture = architecture_line[1].strip()
+            architecture_map = {
+                "Turing": "sm_75",
+                "Ampere": "sm_80", # Example mapping for Ampere
+                "Ada Lovelace": "sm_89", # Example mapping for Ada Lovelace
+                "Hopper": "sm_90" # Example mapping for Hopper
+            }
+            compute_capability = architecture_map.get(architecture)
+            assert compute_capability is not None, "No GPU arch found."
+            _default_compiler_args += f"--gpu-architecture {compute_capability}"
+        break
 
 
 def set_defaults(
